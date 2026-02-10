@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gym & Dieta Pro</title>
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --primary: #2563eb;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --dark: #1e293b;
+            --accent: #f59e0b;
+        }
+
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: var(--dark); }
+        .container { max-width: 500px; margin: auto; }
+        
+        /* Menú Principal */
+        .menu { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+        .menu-btn { padding: 15px 5px; border: none; border-radius: 12px; background: white; color: var(--dark); cursor: pointer; font-weight: bold; font-size: 0.8rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .menu-btn.active { background: var(--primary); color: white; }
+
+        .section { display: none; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        .section.active { display: block; }
+
+        h2 { margin-top: 0; font-size: 1.3rem; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; }
+        label { display: block; margin-top: 10px; font-weight: 600; font-size: 0.9rem; color: #475569; }
+        input, textarea { width: 100%; padding: 12px; margin: 5px 0 15px 0; border: 1px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; font-size: 1rem; }
+        button.add-btn { width: 100%; background: var(--primary); color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+
+        /* Calendario */
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 10px; }
+        .day { padding: 12px 0; border-radius: 8px; font-size: 0.8rem; background: #e2e8f0; cursor: pointer; text-align: center; }
+        .day.done { background: var(--success); color: white; }
+        .day.missed { background: var(--danger); color: white; }
+        .day.selected { outline: 3px solid var(--primary); }
+
+        /* Visor de Detalles */
+        .details-box { background: #f1f5f9; padding: 15px; border-radius: 12px; margin-top: 20px; }
+        .diet-block { background: white; padding: 10px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid var(--accent); }
+        .diet-label { font-weight: bold; font-size: 0.75rem; color: var(--accent); text-transform: uppercase; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="menu">
+        <button class="menu-btn active" onclick="showSection('ejercicios', this)">🏋️ Gym</button>
+        <button class="menu-btn" onclick="showSection('dieta', this)">🥗 Dieta</button>
+        <button class="menu-btn" onclick="showSection('calendario', this)">📅 Historial</button>
+    </div>
+
+    <div id="ejercicios" class="section active">
+        <h2>Nuevo Ejercicio</h2>
+        <input type="text" id="ex-nombre" placeholder="Nombre (ej: Press Militar)">
+        <div style="display: flex; gap: 10px;">
+            <input type="number" id="ex-peso" placeholder="Peso (kg)">
+            <input type="number" id="ex-reps" placeholder="Reps">
+        </div>
+        <button class="add-btn" onclick="addEjercicio()">Guardar Entrenamiento</button>
+    </div>
+
+    <div id="dieta" class="section">
+        <h2>Comidas de Hoy</h2>
+        <label>☕ Desayuno</label>
+        <input type="text" id="diet-desayuno" placeholder="Ej: Avena y café">
+        
+        <label>🍱 Comida</label>
+        <input type="text" id="diet-comida" placeholder="Ej: Pollo y patata">
+        
+        <label>🍎 Merienda</label>
+        <input type="text" id="diet-merienda" placeholder="Ej: Yogur y nueces">
+        
+        <label>🌙 Cena</label>
+        <input type="text" id="diet-cena" placeholder="Ej: Pescado y ensalada">
+        
+        <button class="add-btn" style="background: var(--accent);" onclick="addDieta()">Actualizar Dieta</button>
+    </div>
+
+    <div id="calendario" class="section">
+        <h2 id="month-name">Enero 2024</h2>
+        <div class="calendar-grid" id="calendar-grid"></div>
+
+        <div id="details-view" class="details-box">
+            <h3 id="selected-date-text" style="margin-top:0">Selecciona un día</h3>
+            <div id="day-content">Aquí verás tu resumen diario.</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let db = JSON.parse(localStorage.getItem('gymDataV3')) || {};
+
+    function showSection(id, btn) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        btn.classList.add('active');
+        if(id === 'calendario') renderCalendario();
+    }
+
+    function getTodayKey() {
+        const d = new Date();
+        return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
+    }
+
+    function initDate(dateKey) {
+        if (!db[dateKey]) db[dateKey] = { ejercicios: [], dieta: { desayuno: '', comida: '', merienda: '', cena: '' } };
+    }
+
+    function addEjercicio() {
+        const nombre = document.getElementById('ex-nombre').value;
+        const peso = document.getElementById('ex-peso').value;
+        const reps = document.getElementById('ex-reps').value;
+        if(!nombre) return;
+
+        const hoy = getTodayKey();
+        initDate(hoy);
+        db[hoy].ejercicios.push({ nombre, peso, reps });
+        save();
+        alert("¡Ejercicio añadido!");
+        document.getElementById('ex-nombre').value = '';
+    }
+
+    function addDieta() {
+        const hoy = getTodayKey();
+        initDate(hoy);
+        db[hoy].dieta = {
+            desayuno: document.getElementById('diet-desayuno').value,
+            comida: document.getElementById('diet-comida').value,
+            merienda: document.getElementById('diet-merienda').value,
+            cena: document.getElementById('diet-cena').value
+        };
+        save();
+        alert("¡Dieta actualizada!");
+    }
+
+    function save() { localStorage.setItem('gymDataV3', JSON.stringify(db)); }
+
+    function renderCalendario() {
+        const grid = document.getElementById('calendar-grid');
+        const ahora = new Date();
+        const año = ahora.getFullYear();
+        const mes = ahora.getMonth();
+        document.getElementById('month-name').innerText = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(ahora);
+        
+        grid.innerHTML = '';
+        const ultimoDia = new Date(año, mes + 1, 0).getDate();
+
+        for (let i = 1; i <= ultimoDia; i++) {
+            const dateKey = `${año}-${(mes+1).toString().padStart(2,'0')}-${i.toString().padStart(2,'0')}`;
+            const tieneEntreno = db[dateKey] && db[dateKey].ejercicios.length > 0;
+            const hoyNum = ahora.getDate();
+            
+            let clase = '';
+            if (tieneEntreno) clase = 'done';
+            else if (i < hoyNum) clase = 'missed';
+
+            grid.innerHTML += `<div class="day ${clase}" onclick="verDia('${dateKey}', this)">${i}</div>`;
+        }
+    }
+
+    function verDia(dateKey, element) {
+        document.querySelectorAll('.day').forEach(d => d.classList.remove('selected'));
+        element.classList.add('selected');
+        
+        const datos = db[dateKey];
+        const content = document.getElementById('day-content');
+        document.getElementById('selected-date-text').innerText = `Día: ${dateKey.split('-').reverse().join('/')}`;
+
+        if (!datos) {
+            content.innerHTML = '<p>Sin registros.</p>';
+            return;
+        }
+
+        let html = '<h4>🏋️ Entrenamiento</h4>';
+        if (datos.ejercicios.length > 0) {
+            html += '<ul>' + datos.ejercicios.map(ex => `<li>${ex.nombre}: ${ex.peso}kg x ${ex.reps}</li>`).join('') + '</ul>';
+        } else { html += '<p>No entrenaste.</p>'; }
+
+        html += '<h4>🥗 Alimentación</h4>';
+        const d = datos.dieta;
+        if (d.desayuno || d.comida || d.merienda || d.cena) {
+            if(d.desayuno) html += `<div class="diet-block"><div class="diet-label">Desayuno</div>${d.desayuno}</div>`;
+            if(d.comida) html += `<div class="diet-block"><div class="diet-label">Comida</div>${d.comida}</div>`;
+            if(d.merienda) html += `<div class="diet-block"><div class="diet-label">Merienda</div>${d.merienda}</div>`;
+            if(d.cena) html += `<div class="diet-block"><div class="diet-label">Cena</div>${d.cena}</div>`;
+        } else { html += '<p>Sin registro de comida.</p>'; }
+
+        content.innerHTML = html;
+    }
+</script>
+
+</body>
+</html>
