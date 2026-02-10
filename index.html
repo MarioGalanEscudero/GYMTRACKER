@@ -12,7 +12,7 @@
             --neon-border: #333;
             --text-gray: #b3b3b3;
             --danger: #ff4444;
-            --success: #dfff11; /* En este tema, el amarillo es el éxito */
+            --success: #dfff11;
         }
 
         body { 
@@ -28,7 +28,6 @@
 
         .container { max-width: 500px; margin: auto; }
         
-        /* HEADER ROTO */
         header {
             text-align: center;
             border-bottom: 4px solid var(--neon-yellow);
@@ -39,7 +38,6 @@
 
         h1 { margin: 0; font-size: 2rem; letter-spacing: -1px; font-style: italic; color: var(--neon-yellow); }
 
-        /* MENÚ ESTILO BOTONES INDUSTRIALES */
         .menu { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 20px; }
         .menu-btn { 
             padding: 15px 5px; 
@@ -58,7 +56,6 @@
             box-shadow: 0 0 15px rgba(223, 255, 17, 0.4);
         }
 
-        /* SECCIONES */
         .section { 
             display: none; 
             background: var(--card-bg); 
@@ -70,7 +67,6 @@
 
         h2 { margin-top: 0; font-size: 1rem; color: var(--neon-yellow); border-left: 5px solid var(--neon-yellow); padding-left: 10px; }
 
-        /* INPUTS ESTILO ROUGH */
         input, select, textarea { 
             width: 95%; 
             padding: 12px; 
@@ -96,7 +92,6 @@
         }
         button.add-btn:hover { background: var(--neon-yellow); color: black; }
 
-        /* CALENDARIO ESTILO REJILLA METÁLICA */
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 10px; }
         .day { 
             padding: 10px 0; 
@@ -110,9 +105,7 @@
         .day.missed { border-color: var(--danger); color: var(--danger); opacity: 0.5; }
         .day.selected { border: 2px solid white; box-shadow: 0 0 10px white; }
 
-        /* HISTORIAL */
         .history-card { background: #111; padding: 10px; border: 1px solid #333; margin-bottom: 10px; }
-        .series-row { display: flex; gap: 5px; margin-bottom: 5px; font-size: 0.8rem; border-bottom: 1px solid #222; padding: 5px 0; }
         .diet-block { border-left: 3px solid var(--neon-yellow); padding-left: 10px; margin-bottom: 15px; }
         .diet-label { font-size: 0.7rem; color: var(--neon-yellow); }
     </style>
@@ -148,7 +141,7 @@
         <div class="diet-block"><span class="diet-label">COMIDA</span><input type="text" id="diet-comida"></div>
         <div class="diet-block"><span class="diet-label">MERIENDA</span><input type="text" id="diet-merienda"></div>
         <div class="diet-block"><span class="diet-label">CENA</span><input type="text" id="diet-cena"></div>
-        <button class="add-btn" onclick="addDieta()">GUARDAR DIETA</button>
+        <button class="add-btn" onclick="addDieta()">GUARDAR PROGRESO DIETA</button>
     </div>
 
     <div id="calendario" class="section">
@@ -170,6 +163,8 @@
         document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active'));
         document.getElementById(id).classList.add('active');
         btn.classList.add('active');
+        
+        if(id === 'dieta') cargarDietaActual(); 
         if(id === 'calendario') renderCalendario();
     }
 
@@ -192,31 +187,54 @@
         return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
     }
 
+    function cargarDietaActual() {
+        const hoy = getTodayKey();
+        if (db[hoy] && db[hoy].dieta) {
+            document.getElementById('diet-desayuno').value = db[hoy].dieta.desayuno || '';
+            document.getElementById('diet-comida').value = db[hoy].dieta.comida || '';
+            document.getElementById('diet-merienda').value = db[hoy].dieta.merienda || '';
+            document.getElementById('diet-cena').value = db[hoy].dieta.cena || '';
+        }
+    }
+
     function addEjercicio() {
         const nombre = document.getElementById('ex-nombre').value;
         if(!nombre) return;
+        
         let series = [];
         document.querySelectorAll('.peso-serie').forEach((p, i) => {
             series.push({ peso: p.value || 0, reps: document.querySelectorAll('.reps-serie')[i].value || 0 });
         });
+
         const hoy = getTodayKey();
-        if(!db[hoy]) db[hoy] = { ejercicios: [], dieta: {desayuno:'', comida:'', merienda:'', cena:''} };
+        // Si el día no existe, lo inicializamos
+        if(!db[hoy]) {
+            db[hoy] = { ejercicios: [], dieta: {desayuno:'', comida:'', merienda:'', cena:''} };
+        }
+        
+        // AÑADIMOS el nuevo ejercicio al array existente (no borra los anteriores)
         db[hoy].ejercicios.push({ nombre, series });
+        
         localStorage.setItem('gymDataV4', JSON.stringify(db));
-        alert("SISTEMA ACTUALIZADO");
+        
+        // Limpiar input de nombre para el siguiente ejercicio
+        document.getElementById('ex-nombre').value = '';
+        alert("EJERCICIO REGISTRADO EN LA SESIÓN");
     }
 
     function addDieta() {
         const hoy = getTodayKey();
         if(!db[hoy]) db[hoy] = { ejercicios: [], dieta: {} };
+        
         db[hoy].dieta = {
             desayuno: document.getElementById('diet-desayuno').value,
             comida: document.getElementById('diet-comida').value,
             merienda: document.getElementById('diet-merienda').value,
             cena: document.getElementById('diet-cena').value
         };
+        
         localStorage.setItem('gymDataV4', JSON.stringify(db));
-        alert("NUTRICIÓN GUARDADA");
+        alert("NUTRICIÓN ACTUALIZADA");
     }
 
     function renderCalendario() {
@@ -228,8 +246,11 @@
 
         for (let i = 1; i <= ultimoDia; i++) {
             const key = `${ahora.getFullYear()}-${(ahora.getMonth()+1).toString().padStart(2,'0')}-${i.toString().padStart(2,'0')}`;
-            const ok = db[key] && db[key].ejercicios.length > 0;
-            let clase = ok ? 'done' : (i < ahora.getDate() ? 'missed' : '');
+            
+            // CONDICIÓN: Solo marca amarillo si hay ejercicios registrados
+            const entrenoHecho = db[key] && db[key].ejercicios && db[key].ejercicios.length > 0;
+            
+            let clase = entrenoHecho ? 'done' : (i < ahora.getDate() ? 'missed' : '');
             grid.innerHTML += `<div class="day ${clase}" onclick="verDia('${key}', this)">${i}</div>`;
         }
     }
@@ -242,14 +263,24 @@
         if(!d) { cont.innerHTML = "SIN DATOS"; return; }
 
         let h = '<p style="color:var(--neon-yellow)">> EJERCICIOS:</p>';
-        d.ejercicios.forEach(ex => {
-            h += `<div class="history-card"><b>${ex.nombre}</b><br>`;
-            ex.series.forEach((s, i) => h += `<span style="font-size:0.7rem">S${i+1}: ${s.peso}KG x ${s.reps} | </span>`);
-            h += `</div>`;
-        });
+        if(d.ejercicios && d.ejercicios.length > 0) {
+            d.ejercicios.forEach(ex => {
+                h += `<div class="history-card"><b>${ex.nombre}</b><br>`;
+                ex.series.forEach((s, i) => h += `<span style="font-size:0.7rem">S${i+1}: ${s.peso}KG x ${s.reps} | </span>`);
+                h += `</div>`;
+            });
+        } else { h += "NINGÚN ENTRENAMIENTO REGISTRADO"; }
+
         h += '<p style="color:var(--neon-yellow)">> COMIDAS:</p>';
         if(d.dieta) {
-            for(let key in d.dieta) if(d.dieta[key]) h += `<div style="font-size:0.8rem; margin-bottom:5px;"><b>${key}:</b> ${d.dieta[key]}</div>`;
+            let hayDieta = false;
+            for(let k in d.dieta) {
+                if(d.dieta[k]) {
+                    h += `<div style="font-size:0.8rem; margin-bottom:5px;"><b>${k.toUpperCase()}:</b> ${d.dieta[k]}</div>`;
+                    hayDieta = true;
+                }
+            }
+            if(!hayDieta) h += "SIN REGISTRO NUTRICIONAL";
         }
         cont.innerHTML = h;
     }
